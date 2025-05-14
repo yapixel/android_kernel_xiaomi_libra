@@ -6,6 +6,8 @@
 #include <linux/types.h>
 #include <linux/version.h>
 
+#include <linux/kthread.h>
+
 #include "allowlist.h"
 #include "klog.h" // IWYU pragma: keep
 #include "ksu.h"
@@ -15,7 +17,7 @@
 
 uid_t ksu_manager_uid = KSU_INVALID_UID;
 
-#define SYSTEM_PACKAGES_LIST_PATH "/data/system/packages.list.tmp"
+#define SYSTEM_PACKAGES_LIST_PATH "/data/system/packages.list"
 
 struct uid_data {
 	struct list_head list;
@@ -291,7 +293,7 @@ static bool is_uid_exist(uid_t uid, char *package, void *data)
 	return exist;
 }
 
-void track_throne()
+static void track_throne_function()
 {
 	struct file *fp =
 		ksu_filp_open_compat(SYSTEM_PACKAGES_LIST_PATH, O_RDONLY, 0);
@@ -383,6 +385,30 @@ out:
 	list_for_each_entry_safe (np, n, &uid_list, list) {
 		list_del(&np->list);
 		kfree(np);
+	}
+}
+
+static struct task_struct *throne_thread;
+static bool throne_tracker_thread_running = false;
+
+static int throne_tracker_thread(void *data)
+{
+	pr_info("%s: kthread started\n", __func__);
+	track_throne_function();
+	pr_info("%s: kthread exit\n", __func__);
+	throne_tracker_thread_running = false;
+	return 0;
+}
+
+void track_throne()
+{
+	if (!throne_tracker_thread_running) {
+		throne_thread = kthread_run(throne_tracker_thread, NULL, "throne_tracker");
+		if (IS_ERR(throne_thread)) {
+			pr_err("failed to start throne_tracker kthread\n");
+			throne_thread = NULL;
+		} else
+			throne_tracker_thread_running = true;
 	}
 }
 

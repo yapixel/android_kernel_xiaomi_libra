@@ -40,12 +40,12 @@ bool only_manager(void)
 
 bool only_root(void)
 {
-	return current_uid().val == 0;
+	return current_uid() == 0;
 }
 
 bool manager_or_root(void)
 {
-	return current_uid().val == 0 || is_manager();
+	return current_uid() == 0 || is_manager();
 }
 
 bool always_allow(void)
@@ -55,20 +55,20 @@ bool always_allow(void)
 
 bool allowed_for_su(void)
 {
-	bool is_allowed = is_manager() || ksu_is_allow_uid(current_uid().val);
+	bool is_allowed = is_manager() || ksu_is_allow_uid(current_uid());
 	return is_allowed;
 }
 
 static int do_grant_root(void __user *arg)
 {
 	// Check if current UID is allowed
-	bool is_allowed = is_manager() || ksu_is_allow_uid(current_uid().val);
+	bool is_allowed = is_manager() || ksu_is_allow_uid(current_uid());
 
 	if (!is_allowed) {
 		return -EPERM;
 	}
 
-	pr_info("allow root for: %d\n", current_uid().val);
+	pr_info("allow root for: %d\n", current_uid());
 	escape_to_root();
 
 	return 0;
@@ -377,7 +377,7 @@ static long anon_ksu_ioctl(struct file *filp, unsigned int cmd, unsigned long ar
 	int i;
 
 #ifdef CONFIG_KSU_DEBUG
-	pr_info("ksu ioctl: cmd=0x%x from uid=%d\n", cmd, current_uid().val);
+	pr_info("ksu ioctl: cmd=0x%x from uid=%d\n", cmd, current_uid());
 #endif
 
 	for (i = 0; ksu_ioctl_handlers[i].handler; i++) {
@@ -386,7 +386,7 @@ static long anon_ksu_ioctl(struct file *filp, unsigned int cmd, unsigned long ar
 			if (ksu_ioctl_handlers[i].perm_check &&
 			    !ksu_ioctl_handlers[i].perm_check()) {
 				pr_warn("ksu ioctl: permission denied for cmd=0x%x uid=%d\n",
-					cmd, current_uid().val);
+					cmd, current_uid());
 				return -EPERM;
 			}
 			// Execute handler

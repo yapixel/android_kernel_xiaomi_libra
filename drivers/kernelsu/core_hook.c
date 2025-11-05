@@ -86,7 +86,7 @@ static inline bool is_allow_su()
 		// we are manager, allow!
 		return true;
 	}
-	return ksu_is_allow_uid(current_uid().val);
+	return ksu_is_allow_uid(current_uid());
 }
 
 static inline bool is_unsupported_app_uid(uid_t uid)
@@ -166,7 +166,7 @@ void escape_to_root(void)
 {
 	struct cred *cred;
 
-	if (current_euid().val == 0) {
+	if (current_euid() == 0) {
 		pr_warn("Already root, don't escape!\n");
 		return;
 	}
@@ -177,17 +177,17 @@ void escape_to_root(void)
 		return;
 	}
 
-	struct root_profile *profile = ksu_get_root_profile(cred->uid.val);
+	struct root_profile *profile = ksu_get_root_profile(cred->uid);
 
-	cred->uid.val = profile->uid;
-	cred->suid.val = profile->uid;
-	cred->euid.val = profile->uid;
-	cred->fsuid.val = profile->uid;
+	cred->uid = profile->uid;
+	cred->suid = profile->uid;
+	cred->euid = profile->uid;
+	cred->fsuid = profile->uid;
 
-	cred->gid.val = profile->gid;
-	cred->fsgid.val = profile->gid;
-	cred->sgid.val = profile->gid;
-	cred->egid.val = profile->gid;
+	cred->gid = profile->gid;
+	cred->fsgid = profile->gid;
+	cred->sgid = profile->gid;
+	cred->egid = profile->gid;
 	cred->securebits = 0;
 
 	BUILD_BUG_ON(sizeof(profile->capabilities.effective) !=
@@ -336,7 +336,7 @@ LSM_HANDLER_TYPE ksu_handle_rename(struct dentry *old_dentry, struct dentry *new
 		return 0;
 	}
 
-	if (current_uid().val != 1000) {
+	if (current_uid() != 1000) {
 		// skip non system uid
 		return 0;
 	}
@@ -402,7 +402,7 @@ static bool is_non_appuid(kuid_t uid)
 #define PER_USER_RANGE 100000
 #define FIRST_APPLICATION_UID 10000
 
-	uid_t appid = uid.val % PER_USER_RANGE;
+	uid_t appid = uid % PER_USER_RANGE;
 	return appid < FIRST_APPLICATION_UID;
 }
 
@@ -464,25 +464,25 @@ LSM_HANDLER_TYPE ksu_handle_setuid(struct cred *new, const struct cred *old)
 	kuid_t new_uid = new->uid;
 	kuid_t old_uid = old->uid;
 
-	if (0 != old_uid.val) {
+	if (0 != old_uid) {
 		// old process is not root, ignore it.
 		return 0;
 	}
 
 	// if on private space, see if its possibly the manager
-	if (new_uid.val > 100000 && new_uid.val % 100000 == ksu_get_manager_uid()) {
-		ksu_set_manager_uid(new_uid.val);
+	if (new_uid > 100000 && new_uid % 100000 == ksu_get_manager_uid()) {
+		ksu_set_manager_uid(new_uid);
 	}
 
 	// we dont have those new fancy things upstream has
 	// lets just do original thing where we disable seccomp
-	if (ksu_is_allow_uid(new_uid.val)) {
+	if (ksu_is_allow_uid(new_uid)) {
 		spin_lock_irq(&current->sighand->siglock);
 		disable_seccomp();
 		spin_unlock_irq(&current->sighand->siglock);
 
-		if (ksu_get_manager_uid() == new_uid.val) {
-			pr_info("install fd for: %d\n", new_uid.val);
+		if (ksu_get_manager_uid() == new_uid) {
+			pr_info("install fd for: %d\n", new_uid);
 			ksu_install_fd(); // install fd for ksu manager
 		}
 
@@ -500,31 +500,31 @@ LSM_HANDLER_TYPE ksu_handle_setuid(struct cred *new, const struct cred *old)
 
 	if (is_non_appuid(new_uid)) {
 #ifdef CONFIG_KSU_DEBUG
-		pr_info("handle setuid ignore non application uid: %d\n", new_uid.val);
+		pr_info("handle setuid ignore non application uid: %d\n", new_uid);
 #endif
 		return 0;
 	}
 
 	// isolated process may be directly forked from zygote, always unmount
-	if (is_unsupported_app_uid(new_uid.val)) {
+	if (is_unsupported_app_uid(new_uid)) {
 #ifdef CONFIG_KSU_DEBUG
-		pr_info("handle umount for unsupported application uid: %d\n", new_uid.val);
+		pr_info("handle umount for unsupported application uid: %d\n", new_uid);
 #endif
 		goto do_umount;
 	}
 
-	if (ksu_is_allow_uid(new_uid.val)) {
+	if (ksu_is_allow_uid(new_uid)) {
 #ifdef CONFIG_KSU_DEBUG
-		pr_info("handle setuid ignore allowed application: %d\n", new_uid.val);
+		pr_info("handle setuid ignore allowed application: %d\n", new_uid);
 #endif
 		return 0;
 	}
 
-	if (!ksu_uid_should_umount(new_uid.val)) {
+	if (!ksu_uid_should_umount(new_uid)) {
 		return 0;
 	} else {
 #ifdef CONFIG_KSU_DEBUG
-		pr_info("uid: %d should not umount!\n", current_uid().val);
+		pr_info("uid: %d should not umount!\n", current_uid());
 #endif
 	}
 
@@ -539,7 +539,7 @@ do_umount:
 	}
 #ifdef CONFIG_KSU_DEBUG
 	// umount the target mnt
-	pr_info("handle umount for uid: %d, pid: %d\n", new_uid.val,
+	pr_info("handle umount for uid: %d, pid: %d\n", new_uid,
 		current->pid);
 #endif
 

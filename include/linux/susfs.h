@@ -18,63 +18,65 @@
 #endif
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 3, 0)
-static inline void ksu_static_key_enable(struct static_key *key)
+struct static_key_true {
+	struct static_key key;
+};
+
+struct static_key_false {
+	struct static_key key;
+};
+
+#define DEFINE_STATIC_KEY_TRUE(name)	struct static_key_true name = { .key = STATIC_KEY_INIT_TRUE }
+#define DEFINE_STATIC_KEY_FALSE(name)	struct static_key_false name = { .key = STATIC_KEY_INIT_FALSE }
+
+static inline bool ksu_static_branch_likely(void *x)
 {
+	struct static_key *key = (struct static_key *)x;
+	return static_key_true(key);
+}
+
+static inline bool ksu_static_branch_unlikely(void *x)
+{
+	struct static_key *key = (struct static_key *)x;
+	return static_key_false(key);
+}
+
+static inline void ksu_static_branch_enable(void *x)
+{
+	struct static_key *key = (struct static_key *)x;
 	if (!static_key_enabled(key))
 		static_key_slow_inc(key);
 }
 
-static inline void ksu_static_key_disable(struct static_key *key)
+static inline void ksu_static_branch_disable(void *x)
 {
+	struct static_key *key = (struct static_key *)x;
 	if (static_key_enabled(key))
 		static_key_slow_dec(key);
 }
 
-static inline int ksu_static_key_count(struct static_key *key)
-{
-	return static_key_count(key);
-}
-
-struct ksu_static_key_true_false { struct static_key key; };
-#ifndef static_key_true
-#define static_key_true ksu_static_key_true_false
-#endif
-#ifndef static_key_false
-#define static_key_false ksu_static_key_true_false
-#endif
-
-#define KSU_STATIC_KEY_TRUE_INIT (struct ksu_static_key_true_false) { .key = STATIC_KEY_INIT_TRUE, }
-#define KSU_STATIC_KEY_FALSE_INIT (struct ksu_static_key_true_false) { .key = STATIC_KEY_INIT_FALSE, }
-
-#ifndef DEFINE_STATIC_KEY_TRUE
-#define DEFINE_STATIC_KEY_TRUE(name)	struct ksu_static_key_true_false name = KSU_STATIC_KEY_TRUE_INIT
-#endif
-#ifndef DEFINE_STATIC_KEY_FALSE
-#define DEFINE_STATIC_KEY_FALSE(name)	struct ksu_static_key_true_false name = KSU_STATIC_KEY_FALSE_INIT
-#endif
-
-#ifndef static_branch_enable
-#define static_branch_enable(x)		ksu_static_key_enable(&(x)->key)
-#endif
-#ifndef static_branch_disable
-#define static_branch_disable(x)	ksu_static_key_disable(&(x)->key)
-#endif
-#ifndef static_branch_inc
-#define static_branch_inc(x)		ksu_static_key_enable(&(x)->key)
-#endif
-#ifndef static_branch_dec
-#define static_branch_dec(x)		ksu_static_key_disable(&(x)->key)
+#ifndef static_branch_likely
+#define static_branch_likely(x)		ksu_static_branch_likely(x)
 #endif
 
 #ifndef static_branch_unlikely
-#define static_branch_unlikely(x)	static_key_false(&(x)->key)
-#endif
-#ifndef static_branch_likely
-#define static_branch_likely(x)		static_key_true(&(x)->key)
+#define static_branch_unlikely(x)	ksu_static_branch_unlikely(x)
 #endif
 
-#ifndef static_key_enabled
-#define static_key_enabled(x)		({ ksu_static_key_count((struct static_key *)x) > 0; })
+#ifndef static_branch_enable
+#define static_branch_enable(x)		ksu_static_branch_enable(x)
+#endif
+
+#ifndef static_branch_disable
+#define static_branch_disable(x)	ksu_static_branch_disable(x)
+#endif
+
+#ifndef static_branch_inc
+#define static_branch_inc(x)		ksu_static_branch_enable(x)
+#endif
+
+#ifndef static_branch_dec
+#define static_branch_dec(x)		ksu_static_branch_disable(x)
 #endif
 #endif
 

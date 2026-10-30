@@ -6,18 +6,6 @@
 #include <linux/string.h>
 #include <linux/cred.h>
 
-#ifndef d_backing_inode
-#define d_backing_inode(dentry) ((dentry)->d_inode)
-#endif
-
-#ifndef d_in_lookup
-#define d_in_lookup(dentry) (0)
-#endif
-
-#ifndef d_lookup_done
-#define d_lookup_done(dentry) do {} while (0)
-#endif
-
 /********/
 /* ENUM */
 /********/

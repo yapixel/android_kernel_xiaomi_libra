@@ -13,10 +13,6 @@
 #include <linux/slab.h>
 #include <linux/vmalloc.h>
 
-#ifndef d_backing_inode
-#define d_backing_inode(dentry) ((dentry)->d_inode)
-#endif
-
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 3, 0)
 struct static_key_true {
 	struct static_key key;

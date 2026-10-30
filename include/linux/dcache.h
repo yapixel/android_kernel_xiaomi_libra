@@ -428,6 +428,11 @@ static inline struct inode *d_inode(const struct dentry *dentry)
 	return dentry->d_inode;
 }
 
+static inline struct inode *d_backing_inode(const struct dentry *upper)
+{
+	return upper->d_inode;
+}
+
 static inline bool d_is_negative(const struct dentry *dentry)
 {
 	return (dentry->d_inode == NULL);

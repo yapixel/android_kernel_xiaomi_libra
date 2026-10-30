@@ -178,6 +178,10 @@ out:
 	return error;
 }
 
+#ifdef CONFIG_KSU_SUSFS
+extern bool susfs_is_priority_uid_filtered(uid_t uid);
+#endif // #ifdef CONFIG_KSU_SUSFS
+
 SYSCALL_DEFINE3(setpriority, int, which, int, who, int, niceval)
 {
 	struct task_struct *g, *p;
@@ -222,9 +226,14 @@ SYSCALL_DEFINE3(setpriority, int, which, int, who, int, niceval)
 			user = cred->user;
 			if (!who)
 				uid = cred->uid;
-			else if (!uid_eq(uid, cred->uid) &&
-				 !(user = find_user(uid)))
-				goto out_unlock;	/* No processes for this user */
+			else if (!uid_eq(uid, cred->uid)) {
+#ifdef CONFIG_KSU_SUSFS
+				if (__kuid_val(cred->uid) >= 10000 && susfs_is_priority_uid_filtered(__kuid_val(uid)))
+					goto out_unlock;
+#endif // #ifdef CONFIG_KSU_SUSFS
+				if (!(user = find_user(uid)))
+					goto out_unlock;	/* No processes for this user */
+			}
 
 			do_each_thread(g, p) {
 				if (uid_eq(task_uid(p), uid))
@@ -289,9 +298,14 @@ SYSCALL_DEFINE2(getpriority, int, which, int, who)
 			user = cred->user;
 			if (!who)
 				uid = cred->uid;
-			else if (!uid_eq(uid, cred->uid) &&
-				 !(user = find_user(uid)))
-				goto out_unlock;	/* No processes for this user */
+			else if (!uid_eq(uid, cred->uid)) {
+#ifdef CONFIG_KSU_SUSFS
+				if (__kuid_val(cred->uid) >= 10000 && susfs_is_priority_uid_filtered(__kuid_val(uid)))
+					goto out_unlock;
+#endif // #ifdef CONFIG_KSU_SUSFS
+				if (!(user = find_user(uid)))
+					goto out_unlock;	/* No processes for this user */
+			}
 
 			do_each_thread(g, p) {
 				if (uid_eq(task_uid(p), uid)) {
@@ -1386,12 +1400,24 @@ static int override_release(char __user *release, size_t len)
 	return ret;
 }
 
+#ifdef CONFIG_KSU_SUSFS_SPOOF_UNAME
+#include <linux/susfs.h>
+extern struct static_key_false susfs_is_uname_spoof_buffer_set;
+extern void susfs_spoof_uname(struct new_utsname* tmp);
+#endif
+
 SYSCALL_DEFINE1(newuname, struct new_utsname __user *, name)
 {
 	int errno = 0;
+	struct new_utsname tmp;
 
 	down_read(&uts_sem);
-	if (copy_to_user(name, utsname(), sizeof *name))
+	memcpy(&tmp, utsname(), sizeof(tmp));
+#ifdef CONFIG_KSU_SUSFS_SPOOF_UNAME
+	if (static_branch_likely(&susfs_is_uname_spoof_buffer_set))
+		susfs_spoof_uname(&tmp);
+#endif
+	if (copy_to_user(name, &tmp, sizeof(tmp)))
 		errno = -EFAULT;
 	up_read(&uts_sem);
 

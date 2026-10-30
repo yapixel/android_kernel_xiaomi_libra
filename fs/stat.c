@@ -18,6 +18,17 @@
 #include <asm/uaccess.h>
 #include <asm/unistd.h>
 
+#if defined(CONFIG_KSU_SUSFS_SUS_KSTAT) || defined(CONFIG_KSU_SUSFS_OPEN_REDIRECT)
+#include <linux/susfs_def.h>
+#endif
+#ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
+extern bool susfs_is_inode_sus_kstat(struct inode *inode, bool *out_is_fuse);
+extern void susfs_sus_kstat_spoof_generic_fillattr(struct inode *inode, struct kstat *stat, u32 result_mask);
+#endif // #ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
+#ifdef CONFIG_KSU_SUSFS_OPEN_REDIRECT
+extern int susfs_open_redirect_spoof_vfs_readlink(struct inode *inode, char __user *buffer, int buflen);
+#endif
+
 void generic_fillattr(struct inode *inode, struct kstat *stat)
 {
 	stat->dev = inode->i_sb->s_dev;
@@ -41,15 +52,40 @@ int vfs_getattr(struct path *path, struct kstat *stat)
 {
 	struct inode *inode = path->dentry->d_inode;
 	int retval;
+#ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
+	u32 sus_mask = 0;
+#endif
 
 	retval = security_inode_getattr(path->mnt, path->dentry);
 	if (retval)
 		return retval;
 
-	if (inode->i_op->getattr)
-		return inode->i_op->getattr(path->mnt, path->dentry, stat);
+#ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
+	if (susfs_is_current_app_uid()) {
+		bool is_fuse = false;
+		if (susfs_is_inode_sus_kstat(inode, &is_fuse)) {
+			if (!is_fuse)
+				sus_mask = STATX_SUS_KSTAT;
+			else
+				sus_mask = STATX_SUS_KSTAT_FUSE;
+		}
+	}
+#endif // #ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
+
+	if (inode->i_op->getattr) {
+		retval = inode->i_op->getattr(path->mnt, path->dentry, stat);
+#ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
+		if (!retval && sus_mask)
+			susfs_sus_kstat_spoof_generic_fillattr(inode, stat, sus_mask);
+#endif
+		return retval;
+	}
 
 	generic_fillattr(inode, stat);
+#ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
+	if (sus_mask)
+		susfs_sus_kstat_spoof_generic_fillattr(inode, stat, sus_mask);
+#endif
 	return 0;
 }
 
@@ -314,10 +350,20 @@ retry:
 			error = security_inode_readlink(path.dentry);
 			if (!error) {
 				touch_atime(&path);
+#ifdef CONFIG_KSU_SUSFS_OPEN_REDIRECT
+				if (SUSFS_IS_INODE_OPEN_REDIRECT(inode)) {
+					error = susfs_open_redirect_spoof_vfs_readlink(inode, buf, bufsiz);
+					if (!error)
+						goto out_put;
+				}
+#endif
 				error = inode->i_op->readlink(path.dentry,
 							      buf, bufsiz);
 			}
 		}
+#ifdef CONFIG_KSU_SUSFS_OPEN_REDIRECT
+out_put:
+#endif
 		path_put(&path);
 		if (retry_estale(error, lookup_flags)) {
 			lookup_flags |= LOOKUP_REVAL;

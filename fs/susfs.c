@@ -302,9 +302,6 @@ void susfs_try_umount(uid_t target_uid) {
 	}
 }
 
-void susfs_try_umount_all(uid_t uid) {
-	susfs_try_umount(uid);
-}
 
 #endif // #ifdef CONFIG_KSU_SUSFS_TRY_UMOUNT
 

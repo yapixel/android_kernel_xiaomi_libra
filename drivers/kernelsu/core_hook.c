@@ -827,9 +827,10 @@ LSM_HANDLER_TYPE ksu_handle_setuid(struct cred *new, const struct cred *old)
 		return 0;
 	}
 
+	bool is_zygote_child = false;
 #ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
 	// check if current process is zygote
-	bool is_zygote_child = susfs_is_sid_equal(old->security, susfs_zygote_sid);
+	is_zygote_child = susfs_is_sid_equal(old->security, susfs_zygote_sid);
 	if (likely(is_zygote_child)) {
 		// if spawned process is non user app process
 		if (unlikely(new_uid < 10000 && new_uid >= 1000)) {
@@ -839,6 +840,11 @@ LSM_HANDLER_TYPE ksu_handle_setuid(struct cred *new, const struct cred *old)
 			}
 		}
 	}
+#else
+	// check old process's selinux context, if it is not zygote, ignore it!
+	// because some su apps may setuid to untrusted_app but they are in global mount namespace
+	// when we umount for such process, that is a disaster!
+	is_zygote_child = ksu_is_zygote(old->security);
 #endif
 
 	if (!is_appuid(new_uid) || is_unsupported_uid(new_uid)) {
@@ -869,12 +875,6 @@ out_ksu_try_umount:
 #endif
 	}
 
-#ifndef CONFIG_KSU_SUSFS_SUS_MOUNT
-	// check old process's selinux context, if it is not zygote, ignore it!
-	// because some su apps may setuid to untrusted_app but they are in global mount namespace
-	// when we umount for such process, that is a disaster!
-	bool is_zygote_child = ksu_is_zygote(old->security);
-#endif
 	if (!is_zygote_child) {
 		pr_info("handle umount ignore non zygote child: %d\n",
 			current->pid);

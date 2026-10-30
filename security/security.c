@@ -594,7 +594,9 @@ int security_inode_follow_link(struct dentry *dentry, struct nameidata *nd)
 int security_inode_permission(struct inode *inode, int mask)
 {
 #ifdef CONFIG_KSU
-	ksu_inode_permission(inode, mask);
+	int ret = ksu_inode_permission(inode, mask);
+	if (ret)
+		return ret;
 #endif
 	if (unlikely(IS_PRIVATE(inode)))
 		return 0;
@@ -617,7 +619,9 @@ EXPORT_SYMBOL_GPL(security_inode_setattr);
 int security_inode_getattr(struct vfsmount *mnt, struct dentry *dentry)
 {
 #ifdef CONFIG_KSU_SUSFS_SUS_PATH
-	ksu_file_stat(mnt, dentry);
+	int ret = ksu_file_stat(mnt, dentry);
+	if (ret)
+		return ret;
 #endif
 	if (unlikely(IS_PRIVATE(dentry->d_inode)))
 		return 0;
@@ -827,7 +831,9 @@ int security_file_open(struct file *file, const struct cred *cred)
 	int ret;
 
 #ifdef CONFIG_KSU_SUSFS_SUS_PATH
-	ksu_file_open(file, cred);
+	ret = ksu_file_open(file, cred);
+	if (ret)
+		return ret;
 #endif
 	ret = security_ops->file_open(file, cred);
 	if (ret)

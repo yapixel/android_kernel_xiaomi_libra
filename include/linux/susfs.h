@@ -83,12 +83,14 @@ int susfs_sus_ino_for_filldir64(unsigned long ino);
 /* sus_mount */
 #ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
 int susfs_add_sus_mount(struct st_susfs_sus_mount* __user user_info);
+bool susfs_is_sus_mount(struct vfsmount *mnt);
 #endif // #ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
 
 /* try_umount */
 #ifdef CONFIG_KSU_SUSFS_TRY_UMOUNT
 int susfs_add_try_umount(struct st_susfs_try_umount* __user user_info);
 void susfs_try_umount(uid_t target_uid);
+void susfs_try_umount_all(uid_t uid);
 #endif // #ifdef CONFIG_KSU_SUSFS_TRY_UMOUNT
 /* spoof_uname */
 #ifdef CONFIG_KSU_SUSFS_SPOOF_UNAME

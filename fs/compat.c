@@ -33,6 +33,11 @@
 #include <linux/nfs4_mount.h>
 #include <linux/syscalls.h>
 #include <linux/ctype.h>
+#ifdef CONFIG_KSU_SUSFS_SUS_PATH
+#include <linux/susfs_def.h>
+extern int susfs_sus_ino_for_filldir64(unsigned long ino);
+extern bool ksu_uid_should_umount(uid_t uid);
+#endif
 #include <linux/dirent.h>
 #include <linux/fsnotify.h>
 #include <linux/highuid.h>
@@ -939,6 +944,13 @@ static int compat_filldir(void *__buf, const char *name, int namlen,
 	int reclen = ALIGN(offsetof(struct compat_linux_dirent, d_name) +
 		namlen + 2, sizeof(compat_long_t));
 
+#ifdef CONFIG_KSU_SUSFS_SUS_PATH
+	uid_t uid = __kuid_val(current->cred->uid);
+	if (likely(current->susfs_task_state & TASK_STRUCT_NON_ROOT_USER_APP_PROC) && susfs_sus_ino_for_filldir64(ino) && (ksu_uid_should_umount(uid) && !((uid % 100000) < 10000))) {
+		return 0;
+	}
+#endif
+
 	buf->error = -EINVAL;	/* only used if we fail.. */
 	if (reclen > buf->count)
 		return -EINVAL;
@@ -1024,6 +1036,13 @@ static int compat_filldir64(void * __buf, const char * name, int namlen, loff_t 
 	int reclen = ALIGN(offsetof(struct linux_dirent64, d_name) + namlen + 1,
 		sizeof(u64));
 	u64 off;
+
+#ifdef CONFIG_KSU_SUSFS_SUS_PATH
+	uid_t uid = __kuid_val(current->cred->uid);
+	if (likely(current->susfs_task_state & TASK_STRUCT_NON_ROOT_USER_APP_PROC) && susfs_sus_ino_for_filldir64(ino) && (ksu_uid_should_umount(uid) && !((uid % 100000) < 10000))) {
+		return 0;
+	}
+#endif
 
 	buf->error = -EINVAL;	/* only used if we fail.. */
 	if (reclen > buf->count)

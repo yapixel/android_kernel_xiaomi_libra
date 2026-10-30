@@ -230,6 +230,24 @@ int susfs_add_sus_mount(struct st_susfs_sus_mount* __user user_info) {
 	return 0;
 }
 
+bool susfs_is_sus_mount(struct vfsmount *mnt) {
+	struct mount *m;
+
+	if (!mnt)
+		return false;
+
+	m = real_mount(mnt);
+	if (m->mnt_id >= DEFAULT_SUS_MNT_ID)
+		return true;
+
+	if (mnt->mnt_root && d_inode(mnt->mnt_root)) {
+		if (d_inode(mnt->mnt_root)->i_state & INODE_STATE_SUS_MOUNT)
+			return true;
+	}
+
+	return false;
+}
+
 #endif // #ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
 
 /* try_umount */
@@ -282,6 +300,10 @@ void susfs_try_umount(uid_t target_uid) {
 							cursor->info.target_pathname, target_uid, cursor->info.mnt_mode);
 		}
 	}
+}
+
+void susfs_try_umount_all(uid_t uid) {
+	susfs_try_umount(uid);
 }
 
 #endif // #ifdef CONFIG_KSU_SUSFS_TRY_UMOUNT

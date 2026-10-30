@@ -312,7 +312,7 @@ void susfs_set_hide_sus_mnts_for_non_su_procs(void __user **user_info) {
 		static_branch_disable(&susfs_is_hide_sus_mnts_for_non_su_procs_enabled);
 	}
 
-	SUSFS_LOGI("susfs_is_hide_sus_mnts_for_non_su_procs_enabled: %d\n", static_key_enabled(&susfs_is_hide_sus_mnts_for_non_su_procs_enabled));
+	SUSFS_LOGI("susfs_is_hide_sus_mnts_for_non_su_procs_enabled: %d\n", static_key_enabled((struct static_key *)&susfs_is_hide_sus_mnts_for_non_su_procs_enabled));
 	info.err = 0;
 out_copy_to_user:
 	if (copy_to_user(&((struct st_susfs_hide_sus_mnts_for_non_su_procs __user*)*user_info)->err, &info.err, sizeof(info.err))) {
@@ -792,7 +792,7 @@ void susfs_set_uname(void __user **user_info) {
 	}
 	write_sequnlock(&susfs_uname_seqlock);
 
-	if (!static_key_enabled(&susfs_is_uname_spoof_buffer_set))
+	if (!static_key_enabled((struct static_key *)&susfs_is_uname_spoof_buffer_set))
 		static_branch_enable(&susfs_is_uname_spoof_buffer_set);
 
 	SUSFS_LOGI("set spoofed release: '%s', version: '%s'\n",
@@ -886,7 +886,7 @@ void susfs_set_cmdline_or_bootconfig(void __user **user_info) {
 			SUSFS_FAKE_CMDLINE_OR_BOOTCONFIG_SIZE - 1);
 	write_sequnlock(&susfs_fake_cmdline_or_bootconfig_seqlock);
 
-	if (!static_key_enabled(&susfs_is_fake_cmdline_or_bootconfig_buffer_set))
+	if (!static_key_enabled((struct static_key *)&susfs_is_fake_cmdline_or_bootconfig_buffer_set))
 		static_branch_enable(&susfs_is_fake_cmdline_or_bootconfig_buffer_set);
 	SUSFS_LOGI("fake_cmdline_or_bootconfig is set\n");
 
@@ -1788,7 +1788,7 @@ static void susfs_sdcard_cleanup_fn(struct work_struct *work)
 	struct fsnotify_group *grp;
 	struct inode *inode;
 
-	if (static_key_enabled(&susfs_is_sdcard_android_data_not_decrypted))
+	if (static_key_enabled((struct static_key *)&susfs_is_sdcard_android_data_not_decrypted))
 		static_branch_disable(&susfs_is_sdcard_android_data_not_decrypted);
 	SUSFS_LOGI("/sdcard is decrypted\n");
 	SUSFS_LOGI("cleaning up fsnotify sdcard watch\n");
@@ -1960,7 +1960,7 @@ void susfs_start_sdcard_monitor_fn(void) {
 	if (IS_ERR(kthread_run(susfs_sdcard_monitor_fn, NULL, "susfs_sdcard_monitor"))) {
 		SUSFS_LOGE("failed to create thread susfs_sdcard_monitor\n");
 		SUSFS_LOGI("/sdcard is forcibly set decrypted\n");
-		if (static_key_enabled(&susfs_is_sdcard_android_data_not_decrypted))
+		if (static_key_enabled((struct static_key *)&susfs_is_sdcard_android_data_not_decrypted))
 			static_branch_disable(&susfs_is_sdcard_android_data_not_decrypted);
 	}
 }

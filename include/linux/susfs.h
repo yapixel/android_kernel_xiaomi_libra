@@ -37,17 +37,26 @@ static inline bool ksu_static_branch_unlikely(void *x)
 	return static_key_false(key);
 }
 
+static inline bool ksu_static_key_enabled(void *x)
+{
+	struct static_key *key = (struct static_key *)x;
+	return static_key_count(key) > 0;
+}
+
+#undef static_key_enabled
+#define static_key_enabled(x)		ksu_static_key_enabled(x)
+
 static inline void ksu_static_branch_enable(void *x)
 {
 	struct static_key *key = (struct static_key *)x;
-	if (!static_key_enabled(key))
+	if (!ksu_static_key_enabled(key))
 		static_key_slow_inc(key);
 }
 
 static inline void ksu_static_branch_disable(void *x)
 {
 	struct static_key *key = (struct static_key *)x;
-	if (static_key_enabled(key))
+	if (ksu_static_key_enabled(key))
 		static_key_slow_dec(key);
 }
 

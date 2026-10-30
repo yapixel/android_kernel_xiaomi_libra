@@ -37,8 +37,8 @@ extern struct vfsmount *susfs_get_non_sus_vfsmnt_from_vfsmnt(struct vfsmount *vf
 
 #ifdef CONFIG_KSU_SUSFS_ENABLE_LOG
 DEFINE_STATIC_KEY_TRUE(susfs_is_log_enabled);
-#define SUSFS_LOGI(fmt, ...) if (static_branch_likely(&susfs_is_log_enabled)) pr_info("susfs:[%u][%d][%s] " fmt, current_uid().val, current->pid, __func__, ##__VA_ARGS__)
-#define SUSFS_LOGE(fmt, ...) if (static_branch_likely(&susfs_is_log_enabled)) pr_err("susfs:[%u][%d][%s]" fmt, current_uid().val, current->pid, __func__, ##__VA_ARGS__)
+#define SUSFS_LOGI(fmt, ...) if (static_branch_likely(&susfs_is_log_enabled)) pr_info("susfs:[%u][%d][%s] " fmt, __kuid_val(current_uid()), current->pid, __func__, ##__VA_ARGS__)
+#define SUSFS_LOGE(fmt, ...) if (static_branch_likely(&susfs_is_log_enabled)) pr_err("susfs:[%u][%d][%s]" fmt, __kuid_val(current_uid()), current->pid, __func__, ##__VA_ARGS__)
 #else
 #define SUSFS_LOGI(fmt, ...) 
 #define SUSFS_LOGE(fmt, ...) 
@@ -228,7 +228,7 @@ static void susfs_run_sus_path_loop(void) {
 }
 
 static inline bool is_i_uid_not_allowed(uid_t i_uid) {
-	return likely(current_uid().val != i_uid);
+	return likely(__kuid_val(current_uid()) != i_uid);
 }
 
 /* - Please note that path inside /sdcard will be still visible to MediaProvider module,
@@ -262,7 +262,7 @@ bool susfs_is_inode_sus_path(struct inode *inode)
 			is_i_uid_not_allowed(i_uid_into_mnt(i_user_ns(&fi->inode), &fi->inode).val)))
 #else
 		if (unlikely(test_bit(AS_FLAGS_SUS_PATH, &fi->inode.i_mapping->flags) &&
-			is_i_uid_not_allowed(fi->inode.i_uid.val)))
+			is_i_uid_not_allowed(__kuid_val(fi->inode.i_uid))))
 #endif
 		{
 			SUSFS_LOGI("hiding path with ino '%lu'\n", inode->i_ino);
@@ -278,7 +278,7 @@ bool susfs_is_inode_sus_path(struct inode *inode)
 		is_i_uid_not_allowed(i_uid_into_mnt(i_user_ns(inode), inode).val)))
 #else
 	if (unlikely(test_bit(AS_FLAGS_SUS_PATH, &inode->i_mapping->flags) &&
-		is_i_uid_not_allowed(inode->i_uid.val)))
+		is_i_uid_not_allowed(__kuid_val(inode->i_uid))))
 #endif
 	{
 		SUSFS_LOGI("hiding path with ino '%lu'\n", inode->i_ino);
@@ -1096,11 +1096,11 @@ struct filename *susfs_open_redirect_spoof_do_sys_openat(struct inode *inode) {
 		{
 			switch(entry->info.uid_scheme) {
 				case UID_NON_APP_PROC:
-					if (current_uid().val % 100000 < 10000)
+					if (__kuid_val(current_uid()) % 100000 < 10000)
 						break;
 					goto out_srcu_read_unlock;
 				case UID_ROOT_PROC_EXCEPT_SU_PROC:
-					if (current_uid().val == 0 && !susfs_is_current_ksu_domain())
+					if (__kuid_val(current_uid()) == 0 && !susfs_is_current_ksu_domain())
 						break;
 					goto out_srcu_read_unlock;
 				case UID_NON_SU_PROC:
